@@ -12,6 +12,8 @@ producer = KafkaProducer(
     bootstrap_servers='localhost:9092',  # Replace with your Kafka server
     value_serializer=lambda v: json.dumps(v).encode('utf-8')
 )
+redis_client = redis.StrictRedis(host='localhost', port=6379, db=0, decode_responses=True)
+    
 def kafka_push(d):
     data = d
     producer.send('sample', value=data)
@@ -57,6 +59,7 @@ if __name__ == "__main__":
     hashtag_weights['#Tag501'] = 9000
     hashtag_weights['#Tag502'] = 10000
     hashtags, weights = zip(*hashtag_weights.items())  # Unpack the dictionary into separate lists
+    weights=list(weights)
     producer = KafkaProducer(
         bootstrap_servers='localhost:9092',  # Replace with your Kafka server
         value_serializer=lambda v: json.dumps(v).encode('utf-8')
@@ -71,7 +74,17 @@ if __name__ == "__main__":
                 "minute_index": minute_index
             }
             print(data)
+            # print(hashtags[0:10])
             producer.send('sample', value=data)
+            redis_key = 'hash_weights'
+            # 1. Check if key exists
+            if redis_client.exists(redis_key):
+                print("key present")
+                trends = redis_client.hgetall(redis_key)  # returns a dict: { hashtag: weight, ... }
+                for i in trends:
+                    j = int(i[1:])
+                    weights[j-1] = int(trends[i])
+                redis_client.delete(redis_key)
             time.sleep(1)
     finally:
         producer.flush()

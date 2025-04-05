@@ -1,150 +1,81 @@
-import React, { useState, useEffect } from 'react';
-import { Button, IconButton, LinearProgress, Box, Typography } from '@mui/material';
-import { Add as AddIcon } from '@mui/icons-material';
-import axios from 'axios';
-import { useLocation } from 'react-router-dom';
+import React, { useEffect, useState } from "react";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
+import { MultiSelect } from "react-multi-select-component";
 
-  
-const FileUploadComponent = (a) => {
-  const location = useLocation();
-  const state = location.state;
-  const [selectedFiles, setSelectedFiles] = useState([]);
-  const [uploading, setUploading] = useState(false);
-  const [successCount, setSuccessCount] = useState(0);
-  const [failureCount, setFailureCount] = useState(0);
-  const [uploadProgress, setUploadProgress] = useState(0); // Progress for each file upload
+const HashtagTrendChart = () => {
+  const [dataList, setDataList] = useState([]); // list of objects
+  const [hashtagOptions, setHashtagOptions] = useState([]); // dropdown options
+  const [selectedHashtags, setSelectedHashtags] = useState([]); // selected hashtags
 
-  const [images, setImages] = useState([]);
-  const [page, setPage] = useState(1);
-  const pageSize = 2;
-  const handleFileSelect = (event) => {
-    setSelectedFiles(event.target.files);
-  };
-
-  const handleUpload = async () => {
-    if (selectedFiles.length === 0) return;
-
-    setUploading(true);
-    setSuccessCount(0);
-    setFailureCount(0);
-    setUploadProgress(0);
-    const totalFiles = selectedFiles.length;
-    let success = 0;
-    let failure = 0;
-    console.log(document.cookie);
-    for (let i = 0; i < totalFiles; i++) {
-      try {
-        const file = selectedFiles[i];
-
-        // Create FormData to send files
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('folder', state.folder.name);
-
-        // Replace this URL with your backend upload endpoint
-        const response = await axios.post('http://localhost:5000/api/v1/data/upload', formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-          withCredentials: true,
-          onUploadProgress: (progressEvent) => {
-            const progress = Math.round((progressEvent.loaded / progressEvent.total) * 100);
-            setUploadProgress(progress);
-          },
-        });
-
-        if (response.status === 200) {
-          success++;
-        } else {
-          failure++;
-        }
-      } catch (error) {
-        console.error('Error uploading file', error);
-        failure++;
-      }
-
-      // Update success/failure count
-      setSuccessCount(success);
-      setFailureCount(failure);
-
-      // Update progress
-      setUploadProgress(((i + 1) / totalFiles) * 100);
-    }
-    setUploading(false); // Set uploading to false after all files are processed
-  };
-
+  // Polling every 10 seconds
   useEffect(() => {
-    const fetchImages = async () => {
-      try {
-        const response = await fetch(`http://localhost:5000/api/v1/data/get_images?page=${page}&limit=2`);
-        const data = await response.json();
-        setImages(data.images);
-      } catch (error) {
-        console.error("Error fetching images:", error);
-      }
-    };
-    fetchImages();
-  }, [page]);
+    const interval = setInterval(fetchData, 10000);
+    fetchData(); // initial fetch
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      const response = await fetch("http://localhost:5000/api/hashtags");
+      const result = await response.json(); // expected format: { "#hashtag1": 10, "#hashtag2": 25, ... }
+      const timestamp = new Date().toLocaleTimeString();
+
+      const newEntry = { time: timestamp, ...result };
+
+      setDataList((prevList) => {
+        const updatedList = [...prevList, newEntry];
+        return updatedList.length > 25 ? updatedList.slice(-25) : updatedList;
+      });
+
+      // Update dropdown options
+      const uniqueHashtags = Object.keys(result);
+      const options = uniqueHashtags.map((tag) => ({ label: tag, value: tag }));
+      setHashtagOptions((prevOptions) => {
+        const allOptions = new Set([...prevOptions.map(o => o.value), ...uniqueHashtags]);
+        return Array.from(allOptions).map(tag => ({ label: tag, value: tag }));
+      });
+    } catch (err) {
+      console.error("Error fetching hashtag data:", err);
+    }
+  };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%' }}>
-      <Box sx={{ width: '25%', padding: '20px', borderRight: '1px solid #ddd' }}>
-        <Typography variant="h6" sx={{ marginBottom: '10px' }}>
-          Upload Files
-        </Typography>
+    <div className="p-4">
+      <h2 className="text-xl font-bold mb-4">Hashtag Trend Chart</h2>
 
-        <IconButton
-          color="primary"
-          component="label"
-          sx={{ marginBottom: '10px' }}
-        >
-          <AddIcon />
-          <input
-            type="file"
-            multiple
-            hidden
-            onChange={handleFileSelect}
-            accept="image/*"
+      <MultiSelect
+        style={{width:'100px'}}
+        options={hashtagOptions}
+        value={selectedHashtags}
+        onChange={setSelectedHashtags}
+        labelledBy="Select Hashtags"
+        className="mb-4"
+      />
+
+      <LineChart
+        width={900}
+        height={400}
+        data={dataList}
+        margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+      >
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="time" />
+        <YAxis />
+        <Tooltip />
+        <Legend />
+        {selectedHashtags.slice(0, 5).map((tag, index) => (
+          <Line
+            key={tag.value}
+            type="monotone"
+            dataKey={tag.value}
+            stroke={"#" + ((Math.random() * 0xffffff) << 0).toString(16)}
+            strokeWidth={2}
+            dot={false}
           />
-        </IconButton>
-
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={handleUpload}
-          disabled={uploading || selectedFiles.length === 0}
-          sx={{ marginBottom: '10px' }}
-        >
-          {uploading ? 'Uploading...' : 'Upload'}
-        </Button>
-
-        <Typography variant="body2" color="textSecondary">
-          Success: {successCount}
-        </Typography>
-        <Typography variant="body2" color="textSecondary">
-          Failure: {failureCount}
-        </Typography>
-
-        <LinearProgress
-          variant="determinate"
-          value={uploadProgress}
-          sx={{ marginTop: '20px' }}
-        />
-      </Box>
-      <Box sx={{ width: '75%', padding: '20px' }}>
-        <Typography variant="h6">File Upload Progress</Typography>
-        <Box sx={{ display: "flex", flexWrap: "wrap", gap: "10px", marginTop: "10px" }}>
-          {images && images.map((url, index) => (
-            <img key={index} src={url} alt={`S3 Img ${index}`} width="150px" height="150px" style={{ borderRadius: "10px" }} />
-          ))}
-        </Box>
-        <Box sx={{ marginTop: "20px", display: "flex", gap: "10px" }}>
-          <Button disabled={page === 1} onClick={() => setPage(page - 1)}>Previous</Button>
-          <Button onClick={() => setPage(page + 1)}>Next</Button>
-        </Box>
-      </Box>
-    </Box>
+        ))}
+      </LineChart>
+    </div>
   );
 };
 
-export default FileUploadComponent;
+export default HashtagTrendChart;

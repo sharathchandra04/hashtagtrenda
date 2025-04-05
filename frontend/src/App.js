@@ -13,18 +13,7 @@ function App() {
     <Router>
       <Routes>
         <Route path="/" element={<HomePage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/upload" 
-          element={
-            <PrivateRoute element={<UploadPage />} />
-          } 
-        />
-        <Route path="/home"
-          element={
-            <PrivateRoute element={<FoldersPage />} />
-          } 
-        />
+        <Route path="/home" element={<UploadPage />} />
       </Routes>
     </Router>
     </div>

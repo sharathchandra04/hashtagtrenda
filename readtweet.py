@@ -2,7 +2,7 @@ import random
 from datetime import datetime
 import time
 import redis
-from kafka import KafkaConsumer
+from kafka import KafkaConsumer, KafkaProducer
 import json
 
 #############################################################
@@ -57,6 +57,18 @@ if __name__ == "__main__":
         group_id='my-group',
         value_deserializer=lambda m: json.loads(m.decode('utf-8'))
     )
+    producer = KafkaProducer(
+        bootstrap_servers='localhost:9092',  # Replace with your Kafka server
+        # value_serializer=lambda v: json.dumps(v).encode('utf-8')
+    )
+
+    import random
+    # hashtagsi = ["#one", "#one", "#one", "#four", "#four", "#one", "#four", "#eight", "#eight", "#ten"]
+    # while True:
+    #     random_number = random.randint(1, 9)
+    #     producer.send('hashtags', value=hashtagsi[random_number].encode('utf-8'))
+    #     time.sleep(0.019)
+    
     for message in consumer:
         message = message.value
         print(message)
@@ -90,5 +102,7 @@ if __name__ == "__main__":
                 print('$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$')
         time.sleep(1)
         for hashtag in hashtags_selected:
+            
             hs = f"{hashtag}{minute_index}"
             redis_client.zincrby(f"trending_{minute_index}", 1, hashtag)
+            producer.send('hashtags', value=hashtag.encode('utf-8'))
