@@ -44,28 +44,17 @@ def get_hashtag_counts():
     hashtag_counts = defaultdict(int)
     messages_polled = 0
     threshold = 0
+    data = request.get_json()
     for message in consumer:
         threshold = threshold + 1
         # print(f"Key={message.key}, Value='{message.value}'")
         hashtag = message.value
-        if hashtag:
+        if hashtag and hashtag == data.hashtag:
             hashtag_counts[hashtag] += 1
             messages_polled += 1
         if threshold>15:
             break
 
-    # while messages_polled < 300:
-    #     msg = consumer.poll(timeout=1.0)
-    #     print('msg --> ', msg)
-    #     if msg is None:
-    #         continue  # No message, keep polling
-    #     if msg.error():
-    #         print(f"Kafka error: {msg.error()}")
-    #         continue 
-    #     hashtag = msg.value().decode('utf-8').strip()
-    #     if hashtag:
-    #         hashtag_counts[hashtag] += 1
-    #         messages_polled += 1
     return jsonify(dict(hashtag_counts))
 
 @app.route('/api/get-trends')
